@@ -9,7 +9,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:text="첫번째 프래그"
+        android:text="첫번째 프래그1111111111111"
         android:layout_gravity="center"
         />
 

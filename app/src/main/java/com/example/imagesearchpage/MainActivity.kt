@@ -3,21 +3,27 @@ package com.example.imagesearchpage
 import android.graphics.Color
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
+import androidx.lifecycle.lifecycleScope
 import com.example.imagesearchpage.Fragment.myArchiveFragment
 import com.example.imagesearchpage.Fragment.searchResultFragment
+import com.example.imagesearchpage.data.NetWorkClient
 import com.example.imagesearchpage.databinding.ActivityMainBinding
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
     private val binding by lazy { ActivityMainBinding.inflate(layoutInflater) }
     var fragstate: Boolean = true
     val searchResultFragment = searchResultFragment()
     val myArchiveFragment = myArchiveFragment()
+    var query = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
         binding.topbarSearchButton.setOnClickListener {
-//            binding.topbarSearch.text
+            query = binding.topbarSearch.text.toString()
+            communicateNetWork(setUpDataParameter(query))
         }
         binding.bottombarLeftButton.setOnClickListener {
             val direction = "Left"
@@ -31,33 +37,48 @@ class MainActivity : AppCompatActivity() {
 
     fun bottombarButton(direction: String) {
         if (direction == "Left") {
-            binding.bottombarLeftText.setTextColor(Color.parseColor("#BB00DA"))
-            binding.bottombarLeftImage.setColorFilter(Color.parseColor("#BB00DA"))
-            binding.bottombarRightText.setTextColor(Color.parseColor("#666665"))
-            binding.bottombarRightImage.setColorFilter(Color.parseColor("#666665"))
+            binding.bottombarLeftText.setTextColor(Color.parseColor("#6200EE"))
+            binding.bottombarLeftImage.setColorFilter(Color.parseColor("#6200EE"))
+            binding.bottombarRightText.setTextColor(Color.parseColor("#666666"))
+            binding.bottombarRightImage.setColorFilter(Color.parseColor("#666666"))
             fragstate = true
             supportFragmentManager.beginTransaction().replace(R.id.Fragment,searchResultFragment).commit()
         } else if (direction == "Right") {
-            binding.bottombarLeftText.setTextColor(Color.parseColor("#666665"))
-            binding.bottombarLeftImage.setColorFilter(Color.parseColor("#666665"))
-            binding.bottombarRightText.setTextColor(Color.parseColor("#BB00DA"))
-            binding.bottombarRightImage.setColorFilter(Color.parseColor("#BB00DA"))
+            binding.bottombarLeftText.setTextColor(Color.parseColor("#666666"))
+            binding.bottombarLeftImage.setColorFilter(Color.parseColor("#666666"))
+            binding.bottombarRightText.setTextColor(Color.parseColor("#6200EE"))
+            binding.bottombarRightImage.setColorFilter(Color.parseColor("#6200EE"))
             fragstate = false
             supportFragmentManager.beginTransaction().replace(R.id.Fragment,myArchiveFragment).commit()
         }
     }
+    private fun communicateNetWork(param: HashMap<String, String>) = lifecycleScope.launch() {
+        // HashMap을 받아서,
+        // 한편, onCreate로 시작하는 메인 쓰레드가 있고, 이 함수는 그 바깥 영역에 있는데
+        // 데이터를 주고받는 과정에서 렉이 걸리면, 화면이 멈추게 됨. 그래서 메인쓰레드 바깥에 만들어준거. 이거는 room때도 설명함
+        try {
+        val responseData = NetWorkClient.imageNetWork.searchImages(param)
+
+        Log.d("Parsing Dust ::", responseData.toString())
+        // data class에서의 Retrofit 을 통해서 dataclass가 생성이 됨. 네트워크 요청을 통해 받은 Gson인가 json 데이터가 우리가 사용하고자 하는 data class로 변환이 된다.
+
+        // 요청한 text의 데이터 List가 쭉 들어오게 됨. 서울을 선택했다면 서울에도 여러 구가 있을꺼고 여러 index로 쭉 들어옴
+        } catch (e: Exception) {
+            Log.e("NetworkError", "Error occurred during network call: ${e.message}")
+        }
+    }
     // 네트워크 요청을 위한 메서드
-     private fun setUpDataParameter(a: String): HashMap<String, String>{
-        val authKey = "" // 일반 인증키(Decoding)
+     private fun setUpDataParameter(query: String): HashMap<String, String>{
+        val authKey = "428f408df29c019a8991a06a6d291b12" // 일반적인 카카오 API 호출에 사용되는 "일반 인증키"는 "REST API 키"를 의미
         return hashMapOf( // 요청변수 그리고 항목명 & 샘플데이터
-//            "serviceKey" to authKey,
-//            "returnType" to "json",
-//            "numOfRows" to "100",
-//            "pageNo" to "1",
-//            "sidoName" to sido,
-//            "ver" to "1.0"
+            "Authorization" to "KakaoAK $authKey",
+            "query" to query,
+            "sort" to "accuracy",
+            "page" to "1",
+            "size" to "80"
         )
     }
+
 }
 
 /*
@@ -73,6 +94,19 @@ class MainActivity : AppCompatActivity() {
 [데이터와 리사이클러뷰어댑터 만들기]
 3. build.gradle (Module :app)에 라이브러리 추가하기
 3. 매니페스트에 http통신을 위한 사용권한 추가하기
-3. rtrofit 예제코드 일단 그대로 따라하기(2개의 클래스파일)
 
+3. Retrofit 예제코드 일단 그대로 따라하기(2개의 클래스파일)
+3. https://velog.io/@ywown/kotlin-%ED%86%B5%EC%8B%A0-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%ACVolley-Retrofit보고 따라하기
+3. 데이터 클래스 정의 (https://developers.kakao.com/docs/latest/ko/daum-search/dev-guide#search-image의Document 그대로가져옴)
+3. 서비스 인터페이스 정의 (잘 모르겠음)
+3. Retrofit 객체 생성
+
+3. Retrofit 처음부터 다시
+3. 우선 https://developers.kakao.com/console/app 여기서 애플리케이션 추가하기로,
+3. REST API 키 : 428f408df29c019a8991a06a6d291b12 를 발급받았다.
+3. 네트워크 요청을 위한 메서드 MainActivity에 추가.
+
+3. 다시 차근차근 정리 참고사이트 : https://velog.io/@ywown/kotlin-%ED%86%B5%EC%8B%A0-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%ACVolley-Retrofit#2-retrofit-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC
+3. Retrofit 라이브러리 선언 O
+3. [모델 클래스 선언] - data class에서
  */
